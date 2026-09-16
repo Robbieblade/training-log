@@ -26,11 +26,14 @@
   nav button[aria-current="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
   .panel{display:none}.panel.on{display:block}
 
-  .daypick,.chipbar{display:flex;gap:8px;margin-bottom:16px}
-  .daypick button,.chipbar button{flex:1;padding:10px 4px;font:inherit;font-weight:700;font-size:16px;
+  .daypick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
+  .chipbar{display:flex;gap:8px;margin-bottom:16px}
+  .daypick button,.chipbar button{padding:10px 4px;font:inherit;font-weight:700;font-size:16px;
     background:var(--card);border:2px solid var(--rule);border-radius:8px;cursor:pointer;color:var(--ink)}
+  .chipbar button{flex:1}
   .daypick button[aria-pressed="true"],.chipbar button[aria-pressed="true"]{
     background:var(--tint);border-color:var(--blue);color:var(--blue)}
+  .dayfocus{font-size:15px;color:var(--grey);margin:0 0 6px}
 
   .pairlabel{font-size:14px;color:var(--grey);margin:18px 0 6px}
   .ex{background:var(--card);border:2px solid var(--rule);border-radius:10px;padding:14px;margin-bottom:10px}
@@ -42,6 +45,7 @@
   .setrow input{flex:1;min-width:0;padding:10px;font:inherit;font-size:17px;
     border:2px solid var(--rule);border-radius:7px;background:var(--paper);color:var(--ink)}
   .setrow input:focus{outline:none;border-color:var(--blue)}
+  .setrow input.auto{color:var(--grey);font-style:italic}
 
   label.fld{display:block;font-size:15px;color:var(--grey);margin:0 0 5px}
   input[type=date],input[type=text],select,textarea{width:100%;padding:11px;font:inherit;font-size:17px;
@@ -76,7 +80,7 @@
 <body>
 <div class="wrap">
   <h1>Training log</h1>
-  <p class="sub">Three gym sessions a week, plus golf, classes and padel.</p>
+  <p class="sub">Gym sessions, golf, classes and padel.</p>
   <p class="status" id="status">Checking the sheet…</p>
 
   <nav>
@@ -91,6 +95,7 @@
       <input type="date" id="wdate">
     </div>
     <div class="daypick" id="daypick"></div>
+    <p class="dayfocus" id="dayfocus"></p>
     <div id="exlist"></div>
     <button class="btn" id="savesession">Save session</button>
   </div>
@@ -154,9 +159,9 @@
    ============================================================ */
 const SHEET_URL = "https://script.google.com/macros/s/AKfycbxitkrfrsdc1A5V-_Q6vz4NUk0aO_6Zud2bwx-FvPE5If3ndcAuG9d2CZVmIoAkaomn/exec";
 
-/* ---------- plan ---------- */
+/* ---------- the plan ---------- */
 const PLAN = {
-  "Day 1": { reps: "8–10 reps", exercises: [
+  "Day 1": { reps: "8–10 reps", focus: "Heavier, low reps", exercises: [
     ["Leg press", "Feet mid-platform. Lower slowly, don't lock out the knees."],
     ["Chest press machine", "Handles level with your chest. Control the return."],
     ["Glute machine", "Squeeze at the end, hold a beat, come back slowly."],
@@ -164,7 +169,7 @@ const PLAN = {
     ["Leg curl machine", "Back of the thighs. Curl the pad in, lower it slowly."],
     ["Lat pulldown", "Wide grip, bar to the collarbone, full stretch at the top."]
   ]},
-  "Day 2": { reps: "12 reps", exercises: [
+  "Day 2": { reps: "12 reps", focus: "Moderate, middle reps", exercises: [
     ["Leg extension machine", "Front of the thighs. Straighten, pause, lower."],
     ["Shoulder press machine", "Press overhead, stop short of locking out."],
     ["Glute machine", "Lighter than Day 1, more reps. Same squeeze."],
@@ -172,13 +177,29 @@ const PLAN = {
     ["Hip abduction machine", "Seated, push the knees apart. Slow on the way in."],
     ["Single-arm cable row", "Cable at chest height, elbow close to the body."]
   ]},
-  "Day 3": { reps: "15 reps", exercises: [
+  "Day 3": { reps: "15 reps", focus: "Lighter, high reps", exercises: [
     ["Leg press, feet high", "Feet higher up the platform. More glutes and hamstrings."],
     ["Cable chest press", "Cables at chest height, step forward, press straight out."],
     ["Glute machine", "Lightest of the three days. Should burn by rep 12."],
     ["Cable face pull", "Rope at head height, pull to your face, elbows high."],
     ["Calf raise", "Machine, or toes on the edge of the leg press platform."],
     ["Cable pushdown", "Elbows pinned to your sides, straighten the arms down."]
+  ]},
+  "Day 4": { reps: "10 reps", focus: "Quads and shoulders", exercises: [
+    ["Leg press, feet narrow", "Feet close together, low on the platform. More quads."],
+    ["Incline chest press machine", "Angled bench setting. Hits the upper chest."],
+    ["Glute machine", "Same as always. Squeeze, hold, control the return."],
+    ["Assisted pull-up machine", "Or a close-grip pulldown if it's busy."],
+    ["Leg curl machine", "Slow on the way back down, no letting it drop."],
+    ["Cable lateral raise", "Cable low, one arm at a time, raise to shoulder height."]
+  ]},
+  "Day 5": { reps: "15 reps", focus: "Cables, high reps", exercises: [
+    ["Leg extension machine", "Lighter than Day 2. Pause at the top of every rep."],
+    ["Cable chest fly, low to high", "Cables at the bottom, sweep up and together."],
+    ["Glute machine", "Highest reps of the week. Should burn by rep 12."],
+    ["Straight-arm cable pulldown", "Arms locked straight, sweep the bar to your thighs."],
+    ["Hip abduction machine", "Push the knees apart, three seconds on the way back in."],
+    ["Cable biceps curl", "Elbows still, curl up, lower slowly."]
   ]}
 };
 const PAIRS = [[0,1],[2,3],[4,5]];
@@ -278,7 +299,8 @@ function weekStart(iso){
   return d.toISOString().slice(0,10);
 }
 function lastTime(dayKey, exName){
-  const past = data.sessions.filter(s => s.day === dayKey).sort((a,b) => String(b.date).localeCompare(String(a.date)));
+  const past = data.sessions.filter(s => s.day === dayKey)
+    .sort((a,b) => String(b.date).localeCompare(String(a.date)));
   for (const s of past){
     const e = (s.entries || []).find(x => x.exercise === exName);
     if (e && e.sets.some(st => st.weight || st.reps)) return e.sets;
@@ -312,14 +334,40 @@ Object.keys(PLAN).forEach(k => {
   dayPick.appendChild(b);
 });
 
+/* Set 1 fills sets 2 and 3. They stay editable: type in one and it stops
+   following set 1 from then on. */
+function wireAutoFill(card){
+  const rows = [].slice.call(card.querySelectorAll(".setrow"));
+  const first = rows[0];
+  const rest = rows.slice(1);
+  ["weight","reps"].forEach(f => {
+    const src = first.querySelector("[data-f=" + f + "]");
+    const targets = rest.map(r => r.querySelector("[data-f=" + f + "]"));
+    src.addEventListener("input", () => {
+      targets.forEach(t => {
+        if (t.dataset.touched) return;
+        t.value = src.value;
+        t.classList.toggle("auto", !!src.value);
+      });
+    });
+    targets.forEach(t => {
+      t.addEventListener("input", () => {
+        t.dataset.touched = "1";
+        t.classList.remove("auto");
+      });
+    });
+  });
+}
+
 function renderExercises(){
   const list = $("#exlist");
   list.innerHTML = "";
   const plan = PLAN[currentDay];
+  $("#dayfocus").textContent = plan.focus + " · three rounds of each pair";
   PAIRS.forEach((pair, i) => {
     const lbl = document.createElement("div");
     lbl.className = "pairlabel";
-    lbl.textContent = "Pair " + (i+1) + " — back and forth, 3 rounds, " + plan.reps;
+    lbl.textContent = "Pair " + (i+1) + " — back and forth, " + plan.reps;
     list.appendChild(lbl);
     pair.forEach(idx => {
       const name = plan.exercises[idx][0], how = plan.exercises[idx][1];
@@ -340,6 +388,7 @@ function renderExercises(){
       }
       card.innerHTML = html;
       list.appendChild(card);
+      wireAutoFill(card);
     });
   });
 }
