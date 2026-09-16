@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Training log</title>
+<style>
+  :root{
+    --paper:#FBFAF8;--card:#FFFFFF;--ink:#1A1D21;--grey:#5A6370;
+    --rule:#E2DED7;--blue:#1F5FA8;--tint:#EEF3F9;--green:#2E7D5B;--amber:#B67A16;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:17px;line-height:1.45}
+  .wrap{max-width:620px;margin:0 auto;padding:20px 16px 90px}
+  h1{font-size:26px;font-weight:800;letter-spacing:-0.02em;margin:0 0 4px}
+  .sub{color:var(--grey);font-size:16px;margin:0 0 6px}
+  .status{font-size:14px;color:var(--grey);margin:0 0 18px}
+  .status b{font-weight:700}
+  .status.warn b{color:var(--amber)}
+  .status.ok b{color:var(--green)}
+
+  nav{display:flex;gap:8px;margin-bottom:22px}
+  nav button{flex:1;padding:11px 6px;font:inherit;font-size:16px;font-weight:600;
+    background:var(--card);color:var(--grey);border:2px solid var(--rule);border-radius:8px;cursor:pointer}
+  nav button[aria-current="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
+  .panel{display:none}.panel.on{display:block}
+
+  .daypick,.chipbar{display:flex;gap:8px;margin-bottom:16px}
+  .daypick button,.chipbar button{flex:1;padding:10px 4px;font:inherit;font-weight:700;font-size:16px;
+    background:var(--card);border:2px solid var(--rule);border-radius:8px;cursor:pointer;color:var(--ink)}
+  .daypick button[aria-pressed="true"],.chipbar button[aria-pressed="true"]{
+    background:var(--tint);border-color:var(--blue);color:var(--blue)}
+
+  .pairlabel{font-size:14px;color:var(--grey);margin:18px 0 6px}
+  .ex{background:var(--card);border:2px solid var(--rule);border-radius:10px;padding:14px;margin-bottom:10px}
+  .ex h3{font-size:19px;font-weight:700;margin:0 0 2px;letter-spacing:-0.01em}
+  .ex .how{font-size:15px;color:var(--grey);margin:0 0 10px}
+  .ex .last{font-size:14px;color:var(--green);font-weight:600;margin:0 0 10px}
+  .setrow{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .setrow span.n{width:46px;font-size:14px;color:var(--grey);flex:none}
+  .setrow input{flex:1;min-width:0;padding:10px;font:inherit;font-size:17px;
+    border:2px solid var(--rule);border-radius:7px;background:var(--paper);color:var(--ink)}
+  .setrow input:focus{outline:none;border-color:var(--blue)}
+
+  label.fld{display:block;font-size:15px;color:var(--grey);margin:0 0 5px}
+  input[type=date],input[type=text],select,textarea{width:100%;padding:11px;font:inherit;font-size:17px;
+    border:2px solid var(--rule);border-radius:8px;background:var(--card);color:var(--ink)}
+  .field{margin-bottom:14px}
+
+  .btn{display:block;width:100%;padding:14px;font:inherit;font-size:17px;font-weight:700;
+    background:var(--blue);color:#fff;border:0;border-radius:8px;cursor:pointer;margin-top:6px}
+  .btn.ghost{background:var(--card);color:var(--blue);border:2px solid var(--blue)}
+  .btn.small{padding:9px;font-size:15px;margin-top:10px}
+
+  .summary{background:var(--tint);border-radius:10px;padding:16px;margin-bottom:20px}
+  .summary h2{font-size:18px;margin:0 0 10px;font-weight:800}
+  .summary dl{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:0;font-size:16px}
+  .summary dt{color:var(--grey)}.summary dd{margin:0;font-weight:700;text-align:right}
+
+  .entry{background:var(--card);border:2px solid var(--rule);border-radius:10px;padding:12px 14px;margin-bottom:9px}
+  .entry .head{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .entry .title{font-weight:700;font-size:17px}
+  .entry .date{font-size:14px;color:var(--grey);white-space:nowrap}
+  .entry .detail{font-size:15px;color:var(--grey);margin:5px 0 0}
+  .entry .detail b{color:var(--ink);font-weight:600}
+  .entry .del{background:none;border:0;color:var(--grey);font:inherit;font-size:14px;
+    padding:6px 0 0;cursor:pointer;text-decoration:underline}
+  .empty{color:var(--grey);font-size:16px;padding:10px 0}
+  h2.sec{font-size:20px;font-weight:800;margin:26px 0 10px}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;
+    padding:12px 20px;border-radius:8px;font-size:16px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Training log</h1>
+  <p class="sub">Three gym sessions a week, plus golf, classes and padel.</p>
+  <p class="status" id="status">Checking the sheet…</p>
+
+  <nav>
+    <button data-tab="train" aria-current="true">Gym</button>
+    <button data-tab="other">Activity</button>
+    <button data-tab="history">History</button>
+  </nav>
+
+  <div class="panel on" id="train">
+    <div class="field">
+      <label class="fld" for="wdate">Date</label>
+      <input type="date" id="wdate">
+    </div>
+    <div class="daypick" id="daypick"></div>
+    <div id="exlist"></div>
+    <button class="btn" id="savesession">Save session</button>
+  </div>
+
+  <div class="panel" id="other">
+    <div class="chipbar" id="actpick">
+      <button data-act="golf" aria-pressed="true">Golf</button>
+      <button data-act="class" aria-pressed="false">Class</button>
+      <button data-act="padel" aria-pressed="false">Padel</button>
+    </div>
+    <div class="field">
+      <label class="fld" for="adate">Date</label>
+      <input type="date" id="adate">
+    </div>
+    <div class="field" id="golffields">
+      <label class="fld" for="holes">Holes played</label>
+      <select id="holes">
+        <option value="18">18 holes</option>
+        <option value="9">9 holes</option>
+        <option value="12">12 holes</option>
+        <option value="6">6 holes</option>
+        <option value="0">Range or practice only</option>
+      </select>
+      <label class="fld" for="score" style="margin-top:12px">Score (optional)</label>
+      <input type="text" id="score" inputmode="numeric" placeholder="e.g. 89">
+    </div>
+    <div class="field" id="classfields" hidden>
+      <label class="fld" for="ctype">Class</label>
+      <select id="ctype"><option>Yoga</option><option>Pilates</option><option>Other</option></select>
+      <label class="fld" for="cmins" style="margin-top:12px">Length (minutes)</label>
+      <select id="cmins"><option>45</option><option selected>60</option><option>75</option><option>90</option></select>
+    </div>
+    <div class="field" id="padelfields" hidden>
+      <label class="fld" for="pmins">Length (minutes)</label>
+      <select id="pmins"><option>45</option><option selected>60</option><option>90</option><option>120</option></select>
+    </div>
+    <div class="field">
+      <label class="fld" for="anote">Note (optional)</label>
+      <textarea id="anote" rows="2" placeholder="Who with, how it felt"></textarea>
+    </div>
+    <button class="btn" id="saveact">Add activity</button>
+  </div>
+
+  <div class="panel" id="history">
+    <div class="summary">
+      <h2>This week</h2>
+      <dl id="weekstats"></dl>
+    </div>
+    <h2 class="sec">Everything logged</h2>
+    <div id="log"></div>
+    <button class="btn ghost small" id="refresh">Reload from the sheet</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   PASTE YOUR APPS SCRIPT WEB APP URL BETWEEN THE QUOTES.
+   It looks like https://script.google.com/macros/s/AKfyc.../exec
+   Leave it empty and the page just saves on this device.
+   ============================================================ */
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbxitkrfrsdc1A5V-_Q6vz4NUk0aO_6Zud2bwx-FvPE5If3ndcAuG9d2CZVmIoAkaomn/exec";
+
+/* ---------- plan ---------- */
+const PLAN = {
+  "Day 1": { reps: "8–10 reps", exercises: [
+    ["Leg press", "Feet mid-platform. Lower slowly, don't lock out the knees."],
+    ["Chest press machine", "Handles level with your chest. Control the return."],
+    ["Glute machine", "Squeeze at the end, hold a beat, come back slowly."],
+    ["Seated cable row", "Sit tall, pull to your stomach, elbows past your ribs."],
+    ["Leg curl machine", "Back of the thighs. Curl the pad in, lower it slowly."],
+    ["Lat pulldown", "Wide grip, bar to the collarbone, full stretch at the top."]
+  ]},
+  "Day 2": { reps: "12 reps", exercises: [
+    ["Leg extension machine", "Front of the thighs. Straighten, pause, lower."],
+    ["Shoulder press machine", "Press overhead, stop short of locking out."],
+    ["Glute machine", "Lighter than Day 1, more reps. Same squeeze."],
+    ["Cable chest fly", "Cables high, slight elbow bend, meet in front of you."],
+    ["Hip abduction machine", "Seated, push the knees apart. Slow on the way in."],
+    ["Single-arm cable row", "Cable at chest height, elbow close to the body."]
+  ]},
+  "Day 3": { reps: "15 reps", exercises: [
+    ["Leg press, feet high", "Feet higher up the platform. More glutes and hamstrings."],
+    ["Cable chest press", "Cables at chest height, step forward, press straight out."],
+    ["Glute machine", "Lightest of the three days. Should burn by rep 12."],
+    ["Cable face pull", "Rope at head height, pull to your face, elbows high."],
+    ["Calf raise", "Machine, or toes on the edge of the leg press platform."],
+    ["Cable pushdown", "Elbows pinned to your sides, straighten the arms down."]
+  ]}
+};
+const PAIRS = [[0,1],[2,3],[4,5]];
+
+/* ---------- state ---------- */
+const CACHE = "training-log-cache-v2";
+const QUEUE = "training-log-queue-v2";
+let data = { sessions: [], activities: [] };
+let queue = [];
+const localOnly = !SHEET_URL;
+
+const $ = s => document.querySelector(s);
+const today = () => new Date().toISOString().slice(0,10);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+function readLS(key, fallback){
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch(e){ return fallback; }
+}
+function writeLS(key, val){
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e){}
+}
+data  = readLS(CACHE, data);
+queue = readLS(QUEUE, []);
+
+function setStatus(text, cls){
+  const el = $("#status");
+  el.className = "status" + (cls ? " " + cls : "");
+  el.innerHTML = text;
+}
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("on");
+  setTimeout(() => t.classList.remove("on"), 1800);
+}
+
+/* ---------- sheet calls ----------
+   Content type is text/plain on purpose. It keeps the request "simple", so the
+   browser skips the preflight check that Apps Script can't answer. */
+async function callSheet(payload){
+  const res = await fetch(SHEET_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  });
+  const out = await res.json();
+  if (!out.ok) throw new Error(out.error || "sheet refused");
+  return out;
+}
+
+async function flushQueue(){
+  if (localOnly) return;
+  while (queue.length){
+    await callSheet(queue[0]);
+    queue.shift();
+    writeLS(QUEUE, queue);
+  }
+}
+
+async function pushOrQueue(payload){
+  if (localOnly) return;
+  queue.push(payload);
+  writeLS(QUEUE, queue);
+  try {
+    await flushQueue();
+    setStatus("Saved to your sheet. <b>Up to date</b>", "ok");
+  } catch (e) {
+    setStatus(queue.length + " waiting to upload. <b>Offline</b>", "warn");
+  }
+}
+
+async function pullFromSheet(){
+  if (localOnly){
+    setStatus("No sheet connected. <b>Saving on this device only</b>", "warn");
+    return;
+  }
+  try {
+    await flushQueue();
+    const out = await callSheet({ action: "list" });
+    data = { sessions: out.sessions || [], activities: out.activities || [] };
+    writeLS(CACHE, data);
+    renderExercises();
+    renderHistory();
+    setStatus("Synced with your sheet. <b>Up to date</b>", "ok");
+  } catch (e) {
+    setStatus("Can't reach the sheet. <b>Working offline</b>", "warn");
+  }
+}
+
+/* ---------- helpers ---------- */
+function ukDate(iso){
+  const d = new Date(iso + "T12:00:00");
+  return d.toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" });
+}
+function weekStart(iso){
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.toISOString().slice(0,10);
+}
+function lastTime(dayKey, exName){
+  const past = data.sessions.filter(s => s.day === dayKey).sort((a,b) => String(b.date).localeCompare(String(a.date)));
+  for (const s of past){
+    const e = (s.entries || []).find(x => x.exercise === exName);
+    if (e && e.sets.some(st => st.weight || st.reps)) return e.sets;
+  }
+  return null;
+}
+
+/* ---------- tabs ---------- */
+document.querySelectorAll("nav button").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-current", x === b));
+    document.querySelectorAll(".panel").forEach(p => p.classList.toggle("on", p.id === b.dataset.tab));
+    if (b.dataset.tab === "history") renderHistory();
+  });
+});
+
+/* ---------- gym ---------- */
+let currentDay = "Day 1";
+$("#wdate").value = today();
+
+const dayPick = $("#daypick");
+Object.keys(PLAN).forEach(k => {
+  const b = document.createElement("button");
+  b.textContent = k;
+  b.setAttribute("aria-pressed", k === currentDay);
+  b.addEventListener("click", () => {
+    currentDay = k;
+    dayPick.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    renderExercises();
+  });
+  dayPick.appendChild(b);
+});
+
+function renderExercises(){
+  const list = $("#exlist");
+  list.innerHTML = "";
+  const plan = PLAN[currentDay];
+  PAIRS.forEach((pair, i) => {
+    const lbl = document.createElement("div");
+    lbl.className = "pairlabel";
+    lbl.textContent = "Pair " + (i+1) + " — back and forth, 3 rounds, " + plan.reps;
+    list.appendChild(lbl);
+    pair.forEach(idx => {
+      const name = plan.exercises[idx][0], how = plan.exercises[idx][1];
+      const prev = lastTime(currentDay, name);
+      const card = document.createElement("div");
+      card.className = "ex";
+      card.dataset.exercise = name;
+      let html = "<h3>" + name + "</h3><p class='how'>" + how + "</p>";
+      if (prev){
+        const txt = prev.filter(s => s.weight || s.reps)
+          .map(s => (s.weight || "?") + "kg × " + (s.reps || "?")).join("   ");
+        if (txt) html += "<p class='last'>Last time: " + txt + "</p>";
+      }
+      for (let s = 1; s <= 3; s++){
+        html += "<div class='setrow'><span class='n'>Set " + s + "</span>" +
+          "<input inputmode='decimal' data-f='weight' placeholder='kg'>" +
+          "<input inputmode='numeric' data-f='reps' placeholder='reps'></div>";
+      }
+      card.innerHTML = html;
+      list.appendChild(card);
+    });
+  });
+}
+renderExercises();
+
+$("#savesession").addEventListener("click", async () => {
+  const entries = [];
+  document.querySelectorAll("#exlist .ex").forEach(card => {
+    const sets = [].slice.call(card.querySelectorAll(".setrow")).map(r => ({
+      weight: r.querySelector("[data-f=weight]").value.trim(),
+      reps:   r.querySelector("[data-f=reps]").value.trim()
+    }));
+    if (sets.some(s => s.weight || s.reps)) entries.push({ exercise: card.dataset.exercise, sets });
+  });
+  if (!entries.length){ toast("Nothing to save yet"); return; }
+
+  const session = { id: uid(), date: $("#wdate").value || today(), day: currentDay, entries };
+  data.sessions.push(session);
+  writeLS(CACHE, data);
+  renderExercises();
+  toast("Session saved");
+  await pushOrQueue(Object.assign({ action: "add", kind: "gym" }, session));
+});
+
+/* ---------- activity ---------- */
+let currentAct = "golf";
+$("#adate").value = today();
+
+document.querySelectorAll("#actpick button").forEach(b => {
+  b.addEventListener("click", () => {
+    currentAct = b.dataset.act;
+    document.querySelectorAll("#actpick button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    $("#golffields").hidden  = currentAct !== "golf";
+    $("#classfields").hidden = currentAct !== "class";
+    $("#padelfields").hidden = currentAct !== "padel";
+  });
+});
+
+$("#saveact").addEventListener("click", async () => {
+  const a = { id: uid(), date: $("#adate").value || today(), type: currentAct, note: $("#anote").value.trim() };
+  if (currentAct === "golf"){ a.holes = Number($("#holes").value); a.score = $("#score").value.trim(); }
+  else if (currentAct === "class"){ a.classType = $("#ctype").value; a.mins = Number($("#cmins").value); }
+  else { a.mins = Number($("#pmins").value); }
+
+  data.activities.push(a);
+  writeLS(CACHE, data);
+  $("#anote").value = ""; $("#score").value = "";
+  toast("Activity added");
+  await pushOrQueue(Object.assign({ action: "add", kind: "activity" }, a));
+});
+
+/* ---------- history ---------- */
+function describe(item){
+  if (item.kind === "session"){
+    const best = (item.entries || []).map(e => {
+      const top = e.sets.filter(s => s.weight).sort((a,b) => Number(b.weight) - Number(a.weight))[0];
+      return top ? e.exercise + " " + top.weight + "kg" : null;
+    }).filter(Boolean).slice(0,2).join(", ");
+    return { title: "Gym — " + item.day, detail: (item.entries || []).length + " exercises" + (best ? " · " + best : "") };
+  }
+  if (item.type === "golf")
+    return { title: "Golf", detail: (item.holes ? "<b>" + item.holes + " holes</b>" : "Practice") + (item.score ? " · scored " + item.score : "") };
+  if (item.type === "class")
+    return { title: item.classType || "Class", detail: "<b>" + item.mins + " minutes</b>" };
+  return { title: "Padel", detail: "<b>" + item.mins + " minutes</b>" };
+}
+
+function renderHistory(){
+  const ws = weekStart(today());
+  const sess = data.sessions.filter(s => weekStart(s.date) === ws);
+  const acts = data.activities.filter(a => weekStart(a.date) === ws);
+  const holes = acts.filter(a => a.type === "golf").reduce((n,a) => n + (a.holes || 0), 0);
+
+  $("#weekstats").innerHTML =
+    "<dt>Gym sessions</dt><dd>" + sess.length + " of 3</dd>" +
+    "<dt>Golf holes</dt><dd>" + holes + "</dd>" +
+    "<dt>Classes</dt><dd>" + acts.filter(a => a.type === "class").length + "</dd>" +
+    "<dt>Padel</dt><dd>" + acts.filter(a => a.type === "padel").length + "</dd>";
+
+  const all = data.sessions.map(s => Object.assign({}, s, { kind: "session" }))
+    .concat(data.activities.map(a => Object.assign({}, a, { kind: "activity" })))
+    .sort((a,b) => String(b.date).localeCompare(String(a.date)) || String(b.id).localeCompare(String(a.id)));
+
+  const log = $("#log");
+  if (!all.length){ log.innerHTML = "<p class='empty'>Nothing logged yet.</p>"; return; }
+  log.innerHTML = "";
+  all.forEach(item => {
+    const d = describe(item);
+    const el = document.createElement("div");
+    el.className = "entry";
+    el.innerHTML =
+      "<div class='head'><span class='title'>" + d.title + "</span><span class='date'>" + ukDate(item.date) + "</span></div>" +
+      "<p class='detail'>" + d.detail + (item.note ? " · " + item.note : "") + "</p>" +
+      "<button class='del'>Remove</button>";
+    el.querySelector(".del").addEventListener("click", async () => {
+      if (item.kind === "session") data.sessions = data.sessions.filter(x => x.id !== item.id);
+      else data.activities = data.activities.filter(x => x.id !== item.id);
+      writeLS(CACHE, data);
+      renderHistory();
+      await pushOrQueue({ action: "delete", id: item.id });
+    });
+    log.appendChild(el);
+  });
+}
+
+$("#refresh").addEventListener("click", pullFromSheet);
+renderHistory();
+pullFromSheet();
+</script>
+</body>
+</html>
